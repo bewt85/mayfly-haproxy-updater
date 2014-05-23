@@ -10,8 +10,16 @@ defaults
 
 frontend www-in
   bind *:80
-  reqadd x-mayfly:\ dev
-  default_backend frontend-server
+  acl host_prod hdr_beg(host) www.
+  acl host_dev  hdr_beg(host) www-dev.
 
-backend frontend-server
+  use_backend prod-server if host_prod
+  use_backend dev-server  if host_dev
+
+backend dev-server
   server server1 frontend.service:5000 maxconn 32
+  reqadd x-mayfly:\ dev
+
+backend prod-server
+  server server1 frontend.service:5000 maxconn 32
+  reqadd x-mayfly:\ prod
