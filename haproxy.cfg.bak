@@ -8,18 +8,38 @@ defaults
   timeout client 50000ms
   timeout server 50000ms
 
-frontend www-in
+frontend router 
   bind *:80
-  acl host_prod hdr_beg(host) www.
-  acl host_dev  hdr_beg(host) www-dev.
+ 
+  acl www_in hdr_beg(host) www.
+  acl www_in hdr_beg(host) www-dev.
+ 
+  acl frontend.service hdr(host) -i frontend.service
+  acl backend.service  hdr(host) -i backend.service 
+  
+  acl env_prod hdr_beg(host) www. 
+  acl env_dev  hdr_beg(host) www-dev.
+  acl env_prod hdr(x-mayfly) -i prod
+  acl env_dev  hdr(x-mayfly) -i dev
+  
+  reqadd x-mayfly:\ prod if www_in env_prod
+  reqadd x-mayfly:\ dev  if www_in env_dev
+  
+  use_backend frontend.service_prod if env_prod www_in
+  use_backend frontend.service_dev  if env_dev  www_in
+  use_backend frontend.service_prod if env_prod frontend.service
+  use_backend frontend.service_dev  if env_dev  frontend.service
+  use_backend backend.service_prod  if env_prod backend.service
+  use_backend backend.service_dev   if env_dev  backend.service
 
-  use_backend prod-server if host_prod
-  use_backend dev-server  if host_dev
-
-backend dev-server
+backend frontend.service_dev
   server server1 frontend.service:5000 maxconn 32
-  reqadd x-mayfly:\ dev
 
-backend prod-server
+backend frontend.service_prod
   server server1 frontend.service:5000 maxconn 32
-  reqadd x-mayfly:\ prod
+
+backend backend.service_dev
+  server server1 backend.service:5001 maxconn 32
+
+backend backend.service_prod
+  server server1 backend.service:5001 maxconn 32
