@@ -33,13 +33,13 @@ frontend router
   use_backend backend.service_dev   if env_dev  backend.service
 
 backend frontend.service_dev
-  server server1 frontend.service:5000 maxconn 32
+  server server1 host1.internal:5000 maxconn 32
 
 backend frontend.service_prod
-  server server1 frontend.service:5000 maxconn 32
+  server server1 host1.internal:5000 maxconn 32
 
 backend backend.service_dev
-  server server1 backend.service:5001 maxconn 32
+  server server1 host1.internal:5001 maxconn 32
 
 backend backend.service_prod
-  server server1 backend.service:5001 maxconn 32
+  server server1 host1.internal:5001 maxconn 32
