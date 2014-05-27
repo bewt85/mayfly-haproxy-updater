@@ -83,7 +83,13 @@ class Node(object):
     self.short_key = key.split('/')[-1]
 
 def getBackendsFromEtcd():
-  client = etcd.Client(host='10.0.2.15', port=9000)
+  (host, port) = os.environ.get('ETCD_PEERS', ':').split(':')
+  if (not host and not port):
+    client = etcd.Client()
+  elif ( host and port ):
+    client = etcd.Client(host=host, port=port)
+  else:
+    raise ValueError("Bad parameters for etcd connection")
   backends = {}
   for backend in (Node(**n) for n in client.read('/mayfly/backends', recursive=True)._children):
     for version in backend.nodes:
@@ -92,7 +98,6 @@ def getBackendsFromEtcd():
   return backends
 
 from jinja2 import Environment, FileSystemLoader
-import os
 
 def updateBackendsFromEtcd():
   backends = getBackendsFromEtcd()
