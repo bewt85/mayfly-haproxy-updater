@@ -4,7 +4,7 @@ import argparse
 import os, re, cStringIO
 
 parser = argparse.ArgumentParser(description="Tool for updating haproxy.cfg")
-parser.add_argument('command', choices=['reset'])
+parser.add_argument('command', choices=['reset', 'update'])
 args = parser.parse_args()
 
 config_file_path = os.path.join('etc', 'haproxy', 'haproxy.cfg')
@@ -68,7 +68,43 @@ def remove_routing_blocks():
       elif type(block) is UnknownBlock:
         config_file.write(block.__str__())
 
+import etcd
+
+class Node(object):
+  def __init__(self, createdIndex, modifiedIndex, key, nodes=None, value=None, expiration=None, ttl=None, dir=False):
+    self.createdIndex = createdIndex
+    self.modifiedIndex = modifiedIndex
+    self.key = key
+    self.value = value
+    self.expiration = expiration
+    self.ttl = ttl
+    self.dir = dir
+    self.nodes = map(lambda n: Node(**n), nodes) if nodes != None else []
+    self.short_key = key.split('/')[-1]
+
+def getBackendsFromEtcd():
+  client = etcd.Client(host='10.0.2.15', port=9000)
+  backends = {}
+  for backend in (Node(**n) for n in client.read('/mayfly/backends', recursive=True)._children):
+    for version in backend.nodes:
+      for host in version.nodes:
+        backends.setdefault("%s_%s" % (backend.short_key, version.short_key), []).append(host.value) 
+  return backends
+
+from jinja2 import Environment, FileSystemLoader
+import os
+
+def updateBackendsFromEtcd():
+  backends = getBackendsFromEtcd()
+  env = Environment(loader=FileSystemLoader(os.environ.get('MAYFLY_TEMPLATES', '/etc/mayfly/templates')))
+  output_filename = os.environ.get('MAYFLY_HAPROXY_CFG', '/etc/haproxy/haproxy.cfg')
+  template = env.get_template('haproxy.cfg.jinja')
+  with open(output_filename, 'w') as output_file:
+    output_file.write(template.render(backends=backends, enumerate=enumerate))
+
 if __name__ == '__main__':
 
   if args.command == 'reset':
     remove_routing_blocks()
+  elif args.command == 'update':
+    updateBackendsFromEtcd()

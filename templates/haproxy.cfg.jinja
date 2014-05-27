@@ -1,0 +1,48 @@
+global
+  daemon
+  maxconn 256
+
+defaults
+  mode http
+  timeout connect 5000ms
+  timeout client 50000ms
+  timeout server 50000ms
+
+frontend router 
+  bind *:80
+ 
+  acl www_in hdr_beg(host) www.
+  acl www_in hdr_beg(host) www-dev.
+  acl www_in hdr_beg(host) www-qa.
+ 
+  acl frontend.service hdr(host) -i frontend.service
+  acl backend.service  hdr(host) -i backend.service 
+  
+  acl env_prod hdr_beg(host) www. 
+  acl env_dev  hdr_beg(host) www-dev.
+  acl env_qa   hdr_beg(host) www-qa.
+  acl env_prod hdr(x-mayfly) -i prod
+  acl env_dev  hdr(x-mayfly) -i dev
+  acl env_qa   hdr(x-mayfly) -i qa
+  
+  reqadd x-mayfly:\ prod if www_in env_prod
+  reqadd x-mayfly:\ dev  if www_in env_dev
+  reqadd x-mayfly:\ qa   if www_in env_qa
+  
+  use_backend frontend.service_0.0.1 if env_prod www_in
+  use_backend frontend.service_0.0.2 if env_dev  www_in
+  use_backend frontend.service_0.0.1 if env_qa   www_in
+  use_backend frontend.service_0.0.1 if env_prod frontend.service
+  use_backend frontend.service_0.0.2 if env_dev  frontend.service
+  use_backend frontend.service_0.0.1 if env_qa   frontend.service
+  use_backend backend.service_0.0.1  if env_prod backend.service
+  use_backend backend.service_0.0.2  if env_dev  backend.service
+  use_backend backend.service_0.0.2  if env_qa   backend.service
+
+{% for name, locations in backends.items() -%}
+backend {{ name }}
+  {%- for n, location in enumerate(locations) %}
+  server server{{ n }} {{ location }} maxconn 32
+  {%- endfor %}
+
+{% endfor %}
