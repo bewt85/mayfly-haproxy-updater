@@ -1,8 +1,0 @@
-{{ range $backend := .mayfly_backends }}
-  {{ range $version := $backend.Nodes }}
-    {{ range $server := $version.Nodes }}
-UUID: {{ $server.Key }}
-Location: {{ $server.Value }}
-    {{ end }}
-  {{ end }}
-{{ end }}
