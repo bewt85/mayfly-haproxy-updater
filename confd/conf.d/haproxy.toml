@@ -1,0 +1,13 @@
+[template]
+src  = "haproxy.conf.tmpl"
+dest = "/tmp/_haproxy.cfg"
+keys = [
+  "/mayfly/backends",
+]
+# This is a hack:
+# This runs in a docker container which has a --volume-mount to
+# the container running haproxy.  confd throws an error such as
+# ERROR rename /tmp/232643107 /etc/haproxy/_haproxy.cfg: invalid cross-device link
+# if I try and update a file in a mounted location.  This seems
+# to work fine though.
+reload_cmd = "cp /tmp/_haproxy.cfg /etc/haproxy/_haproxy.cfg"
