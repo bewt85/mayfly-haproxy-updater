@@ -1,6 +1,6 @@
 # Docker version 0.11.1
 
-FROM ubuntu:14.04
+FROM bewt85/etcdctl:0.4.1 
 
 RUN apt-get update
 RUN apt-get install -y python2.7 vim
