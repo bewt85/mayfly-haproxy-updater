@@ -1,7 +1,8 @@
+-e git+https://github.com/jplana/python-etcd.git@0.3.0#egg=python-etcd
+
 Jinja2==2.7.2
 MarkupSafe==0.23
 argparse==1.2.1
 pyOpenSSL==0.13.1
-python-etcd==0.3.0
 urllib3==1.7
 wsgiref==0.1.2

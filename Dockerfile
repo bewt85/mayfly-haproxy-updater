@@ -3,13 +3,12 @@
 FROM bewt85/etcdctl:0.4.1 
 
 RUN apt-get update
-RUN apt-get install -y python2.7 python-pip python-dev libssl-dev vim
+RUN apt-get install -y python2.7 python-pip python-dev libssl-dev vim git
 
 ADD requirements.txt /etc/mayfly/
 ADD templates        /etc/mayfly/templates
 
-RUN wget https://github.com/jplana/python-etcd/archive/0.3.0.tar.gz && tar zxf 0.3.0.tar.gz
-RUN pip install -r /etc/mayfly/requirements.txt && cd python-etcd-0.3.0 && python setup.py install && cd ..
+RUN pip install -r /etc/mayfly/requirements.txt
 
 ADD configure_haproxy.py /usr/local/bin/
 ADD haproxy.cfg.bak      /haproxy.cfg.bak 
