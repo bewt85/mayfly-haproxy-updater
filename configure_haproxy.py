@@ -87,7 +87,7 @@ def getBackendsFromEtcd():
   if (not host and not port):
     client = etcd.Client()
   elif ( host and port ):
-    client = etcd.Client(host=host, port=port)
+    client = etcd.Client(host=host, port=int(port))
   else:
     raise ValueError("Bad parameters for etcd connection")
   backends = {}
