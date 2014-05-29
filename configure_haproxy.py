@@ -39,6 +39,14 @@ class Node(object):
       client = getEtcdClient()
       self.nodes = [Node(**n) for n in client.read(self.key, recursive=True)._children]
     return self.nodes
+  def __getitem__(self, key):
+    matches = filter(lambda n: n.short_key == key, self.ls())
+    if len(matches) > 1:
+      raise ValueError("More than one match was found for '%s' in the children on '%s'" % (key, self.key))
+    elif len(matches) == 0:
+      raise KeyError("Could not find '%s' in the children on '%s'" % (key, self.key))
+    else:
+      return matches[0]
   def __repr__(self):
     if self.value:
       return "%s => %s" % (self.key, self.value)
@@ -49,8 +57,8 @@ def getBackendsFromEtcd():
   client = getEtcdClient()
   backends = {}
   for backend in (Node(**n) for n in client.read('/mayfly/backends', recursive=True)._children):
-    for version in backend.nodes:
-      for host in version.nodes:
+    for version in backend.ls():
+      for host in version.ls():
         backends.setdefault("%s_%s" % (backend.short_key, version.short_key), []).append(host.value) 
   return backends
 
@@ -58,25 +66,21 @@ def getFrontendsFromEtcd():
   client = getEtcdClient()
   # /mayfly/environments/<name>/prefix                       => www
   # /mayfly/environments/<name>/header                       => prod
+  # /mayfly/environments/<name>/routes/*                     => frontend 
   # /mayfly/environments/<name>/services/<service>/<version> => 0
   environments = {}
   for environment in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
     (env_name, prefix, header) = (environment.short_key, None, None)
-    for node in environment.nodes:
-      if node.short_key == 'prefix':
-        prefix = node.value
-        environments.setdefault('prefixes', []).append(prefix)
-      elif node.short_key == 'header':
-        header = node.value
-      elif node.short_key == 'services':
-        for service in node.nodes:
-          service_name = service.short_key
-          print "Processing %s in %s" % (service_name,env_name)
-          environments.setdefault('services', []).append(service_name)
-          version = service.nodes[0].short_key
-          if len(service.nodes) > 1:
-            raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
-          environments.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
+    prefix = environment['prefix']
+    environments.setdefault('prefixes', []).append(prefix)
+    header = environment['header']
+    for service in environment['services'].ls():
+      service_name = service.short_key
+      environments.setdefault('services', []).append(service_name)
+      version = service.ls()[0].short_key
+      if len(service.ls())> 1:
+        raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
+      environments.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
     environments.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
   return {80: environments}
 
