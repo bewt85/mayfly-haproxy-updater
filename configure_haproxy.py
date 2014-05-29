@@ -54,6 +54,31 @@ def getBackendsFromEtcd():
         backends.setdefault("%s_%s" % (backend.short_key, version.short_key), []).append(host.value) 
   return backends
 
+def getFrontendsFromEtcd():
+  client = getEtcdClient()
+  # /mayfly/environments/<name>/prefix                       => www
+  # /mayfly/environments/<name>/header                       => prod
+  # /mayfly/environments/<name>/services/<service>/<version> => 0
+  frontends = {}
+  for frontend in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
+    (env_name, prefix, header) = (frontend.short_key, None, None)
+    for node in frontend.nodes:
+      if node.short_key == 'prefix':
+        prefix == node.value
+        frontends.setdefault('prefixes', []).append(prefix)
+      elif node.short_key == 'header':
+        header == node.value
+      elif node.short_key == 'service':
+        for service in node.nodes:
+          service_name = service.short_key
+          frontend.setdefault('services', []).append(service_name)
+          version = service.nodes[0].short_key
+          if len(service.nodes) > 1:
+            raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
+          frontends.setdefault('backends', []).append((env_name, version, service_name))
+    frontends.setdefault('environments', []).append((env_name, prefix, header))
+  return frontends
+
 from jinja2 import Environment, FileSystemLoader
 
 def updateBackendsFromEtcd():
@@ -67,4 +92,5 @@ def updateBackendsFromEtcd():
 if __name__ == '__main__':
 
   if args.command == 'update':
-    updateBackendsFromEtcd()
+    print getFrontendsFromEtcd()
+    #updateBackendsFromEtcd()
