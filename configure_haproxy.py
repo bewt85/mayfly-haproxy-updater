@@ -64,19 +64,20 @@ def getFrontendsFromEtcd():
     (env_name, prefix, header) = (frontend.short_key, None, None)
     for node in frontend.nodes:
       if node.short_key == 'prefix':
-        prefix == node.value
+        prefix = node.value
         frontends.setdefault('prefixes', []).append(prefix)
       elif node.short_key == 'header':
-        header == node.value
-      elif node.short_key == 'service':
+        header = node.value
+      elif node.short_key == 'services':
         for service in node.nodes:
           service_name = service.short_key
-          frontend.setdefault('services', []).append(service_name)
+          print "Processing %s in %s" % (service_name,env_name)
+          frontends.setdefault('services', []).append(service_name)
           version = service.nodes[0].short_key
           if len(service.nodes) > 1:
             raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
-          frontends.setdefault('backends', []).append((env_name, version, service_name))
-    frontends.setdefault('environments', []).append((env_name, prefix, header))
+          frontends.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
+    frontends.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
   return frontends
 
 from jinja2 import Environment, FileSystemLoader
