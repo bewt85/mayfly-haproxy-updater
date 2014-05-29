@@ -10,34 +10,28 @@ defaults
 
 frontend router 
   bind *:80
- 
-  acl www_in hdr_beg(host) www.
-  acl www_in hdr_beg(host) www-dev.
-  acl www_in hdr_beg(host) www-qa.
- 
-  acl frontend.service hdr(host) -i frontend.service
-  acl backend.service  hdr(host) -i backend.service 
+
+{% for prefix in environments['prefixes'] %}  
+  acl www_in hdr_beg(host) {{ prefix }}.
+{%- endfor %}
   
-  acl env_prod hdr_beg(host) www. 
-  acl env_dev  hdr_beg(host) www-dev.
-  acl env_qa   hdr_beg(host) www-qa.
-  acl env_prod hdr(x-mayfly) -i prod
-  acl env_dev  hdr(x-mayfly) -i dev
-  acl env_qa   hdr(x-mayfly) -i qa
-  
-  reqadd x-mayfly:\ prod if www_in env_prod
-  reqadd x-mayfly:\ dev  if www_in env_dev
-  reqadd x-mayfly:\ qa   if www_in env_qa
+{% for service in environments['services'] %}
+  acl {{service}}.service hdr(host) -i {{service}}.service
+{%- endfor %}
+
+{% for environment in environments['environments'] %} 
+  acl env_{{environment['env_name']}} hdr_beg(host) {{environment['env_prefix']}}. 
+  acl env_{{environment['env_name']}} hdr(x-mayfly) -i {{environment['env_header']}} 
+  reqadd x-mayfly:\ {{environment['env_header']}} if www_in env_{{environment['env_name']}}
+{% endfor %}
   
   use_backend frontend.service_0.0.1 if env_prod www_in
   use_backend frontend.service_0.0.2 if env_dev  www_in
   use_backend frontend.service_0.0.1 if env_qa   www_in
-  use_backend frontend.service_0.0.1 if env_prod frontend.service
-  use_backend frontend.service_0.0.2 if env_dev  frontend.service
-  use_backend frontend.service_0.0.1 if env_qa   frontend.service
-  use_backend backend.service_0.0.1  if env_prod backend.service
-  use_backend backend.service_0.0.2  if env_dev  backend.service
-  use_backend backend.service_0.0.2  if env_qa   backend.service
+
+{% for backend in environments['backends'] %}
+  use_backend {{backend['service_name']}}.service_{{backend['version']}} if env_{{backend['env_name']}} {{backend['service_name']}}.service
+{%- endfor %}
 
 {% for name, locations in backends.items() -%}
 backend {{ name }}

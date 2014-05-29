@@ -93,5 +93,11 @@ def updateBackendsFromEtcd():
 if __name__ == '__main__':
 
   if args.command == 'update':
-    print getFrontendsFromEtcd()
+    backends = getBackendsFromEtcd()
+    environments = getFrontendsFromEtcd()
+    env = Environment(loader=FileSystemLoader(os.environ.get('MAYFLY_TEMPLATES', '/etc/mayfly/templates')))
+    template = env.get_template('haproxy.cfg.jinja')
+    
+    print template.render(environments=environments, backends=backends, enumerate=enumerate)
+
     #updateBackendsFromEtcd()
