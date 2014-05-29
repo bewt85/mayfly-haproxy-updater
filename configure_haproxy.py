@@ -70,8 +70,22 @@ def remove_routing_blocks():
 
 import etcd
 
+def getEtcdClient():
+  (host, port) = os.environ.get('ETCD_PEERS', ':').split(':')
+  if (not host and not port):
+    client = etcd.Client()
+  elif ( host and port ):
+    client = etcd.Client(host=host, port=int(port))
+  else:
+    raise ValueError("Bad parameters for etcd connection")
+  return client
+
+def getEtcdNode(key):
+  client = getEtcdClient()
+  return Node(**client.read(key).__dict__)
+
 class Node(object):
-  def __init__(self, createdIndex, modifiedIndex, key, nodes=None, value=None, expiration=None, ttl=None, dir=False):
+  def __init__(self, createdIndex, modifiedIndex, key, nodes=None, value=None, expiration=None, ttl=None, dir=False, **kwargs):
     self.createdIndex = createdIndex
     self.modifiedIndex = modifiedIndex
     self.key = key
@@ -81,15 +95,19 @@ class Node(object):
     self.dir = dir
     self.nodes = map(lambda n: Node(**n), nodes) if nodes != None else []
     self.short_key = key.split('/')[-1]
+  def ls(self):
+    if self.dir and not self.nodes:
+      client = getEtcdClient()
+      self.nodes = [Node(**n) for n in client.read(self.key, recursive=True)._children]
+    return self.nodes
+  def __repr__(self):
+    if self.value:
+      return "%s => %s" % (self.key, self.value)
+    else:
+      return "\n".join(node.__repr__() for node in self.ls())
 
 def getBackendsFromEtcd():
-  (host, port) = os.environ.get('ETCD_PEERS', ':').split(':')
-  if (not host and not port):
-    client = etcd.Client()
-  elif ( host and port ):
-    client = etcd.Client(host=host, port=int(port))
-  else:
-    raise ValueError("Bad parameters for etcd connection")
+  client = getEtcdClient()
   backends = {}
   for backend in (Node(**n) for n in client.read('/mayfly/backends', recursive=True)._children):
     for version in backend.nodes:
