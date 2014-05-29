@@ -66,7 +66,7 @@ def getFrontendsFromEtcd():
   client = getEtcdClient()
   # /mayfly/environments/<name>/prefix                       => www
   # /mayfly/environments/<name>/header                       => prod
-  # /mayfly/environments/<name>/routes/*                     => frontend 
+  # /mayfly/environments/<name>/routes/*                     => frontend/0.0.1
   # /mayfly/environments/<name>/services/<service>/<version> => 0
   environments = {}
   for environment in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
@@ -74,6 +74,7 @@ def getFrontendsFromEtcd():
     prefix = environment['prefix']
     environments.setdefault('prefixes', []).append(prefix)
     header = environment['header']
+    environments.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
     for service in environment['services'].ls():
       service_name = service.short_key
       environments.setdefault('services', []).append(service_name)
@@ -81,7 +82,8 @@ def getFrontendsFromEtcd():
       if len(service.ls())> 1:
         raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
       environments.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
-    environments.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
+    www_service, www_version = environment['routes']['*'].value.split('/') # Could support more routes later
+    environments.setdefault('routes', []).append({'env_name': env_name, 'route': '', 'service': www_service, 'version': www_version})
   return {80: environments}
 
 from jinja2 import Environment, FileSystemLoader

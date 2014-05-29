@@ -26,9 +26,9 @@ frontend router
   reqadd x-mayfly:\ {{environment['env_header']}} if www_in env_{{environment['env_name']}}
 {% endfor %}
   
-  use_backend frontend.service_0.0.1 if env_prod www_in
-  use_backend frontend.service_0.0.2 if env_dev  www_in
-  use_backend frontend.service_0.0.1 if env_qa   www_in
+{% for route in environments['routes'] %} 
+  use_backend {{route['service']}}.service_{{route['version']}} if env_{{route['env_name']}} www_in
+{%- endfor %}
 
 {% for backend in environments['backends'] %}
   use_backend {{backend['service_name']}}.service_{{backend['version']}} if env_{{backend['env_name']}} {{backend['service_name']}}.service
