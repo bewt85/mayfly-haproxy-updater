@@ -59,26 +59,26 @@ def getFrontendsFromEtcd():
   # /mayfly/environments/<name>/prefix                       => www
   # /mayfly/environments/<name>/header                       => prod
   # /mayfly/environments/<name>/services/<service>/<version> => 0
-  frontends = {}
-  for frontend in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
-    (env_name, prefix, header) = (frontend.short_key, None, None)
-    for node in frontend.nodes:
+  environments = {}
+  for environment in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
+    (env_name, prefix, header) = (environment.short_key, None, None)
+    for node in environment.nodes:
       if node.short_key == 'prefix':
         prefix = node.value
-        frontends.setdefault('prefixes', []).append(prefix)
+        environments.setdefault('prefixes', []).append(prefix)
       elif node.short_key == 'header':
         header = node.value
       elif node.short_key == 'services':
         for service in node.nodes:
           service_name = service.short_key
           print "Processing %s in %s" % (service_name,env_name)
-          frontends.setdefault('services', []).append(service_name)
+          environments.setdefault('services', []).append(service_name)
           version = service.nodes[0].short_key
           if len(service.nodes) > 1:
             raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
-          frontends.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
-    frontends.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
-  return frontends
+          environments.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
+    environments.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
+  return {80: environments}
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -94,10 +94,10 @@ if __name__ == '__main__':
 
   if args.command == 'update':
     backends = getBackendsFromEtcd()
-    environments = getFrontendsFromEtcd()
+    frontends = getFrontendsFromEtcd()
     env = Environment(loader=FileSystemLoader(os.environ.get('MAYFLY_TEMPLATES', '/etc/mayfly/templates')))
     template = env.get_template('haproxy.cfg.jinja')
     
-    print template.render(environments=environments, backends=backends, enumerate=enumerate)
+    print template.render(frontends=frontends, backends=backends, enumerate=enumerate)
 
     #updateBackendsFromEtcd()

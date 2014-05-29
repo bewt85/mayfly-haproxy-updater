@@ -8,8 +8,9 @@ defaults
   timeout client 50000ms
   timeout server 50000ms
 
+{% for port, environments in frontends.items() %}
 frontend router 
-  bind *:80
+  bind *:{{port}}
 
 {% for prefix in environments['prefixes'] %}  
   acl www_in hdr_beg(host) {{ prefix }}.
@@ -32,6 +33,8 @@ frontend router
 {% for backend in environments['backends'] %}
   use_backend {{backend['service_name']}}.service_{{backend['version']}} if env_{{backend['env_name']}} {{backend['service_name']}}.service
 {%- endfor %}
+
+{% endfor %}
 
 {% for name, locations in backends.items() -%}
 backend {{ name }}
