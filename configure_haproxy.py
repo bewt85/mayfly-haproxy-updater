@@ -71,9 +71,9 @@ def getFrontendsFromEtcd():
   environments = {}
   for environment in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
     (env_name, prefix, header) = (environment.short_key, None, None)
-    prefix = environment['prefix']
+    prefix = environment['prefix'].value
     environments.setdefault('prefixes', []).append(prefix)
-    header = environment['header']
+    header = environment['header'].value
     environments.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
     for service in environment['services'].ls():
       service_name = service.short_key
@@ -88,22 +88,16 @@ def getFrontendsFromEtcd():
 
 from jinja2 import Environment, FileSystemLoader
 
-def updateBackendsFromEtcd():
+def updateHaproxyConfigFromEtcd():
   backends = getBackendsFromEtcd()
+  frontends = getFrontendsFromEtcd()
   env = Environment(loader=FileSystemLoader(os.environ.get('MAYFLY_TEMPLATES', '/etc/mayfly/templates')))
   output_filename = os.environ.get('MAYFLY_HAPROXY_CFG', '/etc/haproxy/haproxy.cfg')
   template = env.get_template('haproxy.cfg.jinja')
   with open(output_filename, 'w') as output_file:
-    output_file.write(template.render(backends=backends, enumerate=enumerate))
+    output_file.write(template.render(frontends=frontends, backends=backends, enumerate=enumerate))
 
 if __name__ == '__main__':
 
   if args.command == 'update':
-    backends = getBackendsFromEtcd()
-    frontends = getFrontendsFromEtcd()
-    env = Environment(loader=FileSystemLoader(os.environ.get('MAYFLY_TEMPLATES', '/etc/mayfly/templates')))
-    template = env.get_template('haproxy.cfg.jinja')
-    
-    print template.render(frontends=frontends, backends=backends, enumerate=enumerate)
-
-    #updateBackendsFromEtcd()
+    updateHaproxyConfigFromEtcd()
