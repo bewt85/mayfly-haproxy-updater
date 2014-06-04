@@ -2,6 +2,8 @@
 
 import argparse
 import os, re, cStringIO
+import hashlib
+import datetime
 
 parser = argparse.ArgumentParser(description="Tool for updating haproxy.cfg")
 parser.add_argument('command', choices=['update'])
@@ -94,8 +96,18 @@ def updateHaproxyConfigFromEtcd():
   env = Environment(loader=FileSystemLoader(os.environ.get('MAYFLY_TEMPLATES', '/etc/mayfly/templates')))
   output_filename = os.environ.get('MAYFLY_HAPROXY_CFG', '/etc/haproxy/haproxy.cfg')
   template = env.get_template('haproxy.cfg.jinja')
-  with open(output_filename, 'w') as output_file:
-    output_file.write(template.render(frontends=frontends, backends=backends, enumerate=enumerate))
+  revised_config=template.render(frontends=frontends, backends=backends, enumerate=enumerate)
+  new_hash=hashlib.md5()
+  new_hash.update(revised_config)
+  with open(output_filename, 'r') as output_file:
+    old_hash=hashlib.md5()
+    old_hash.update(output_file.read())
+  if new_hash.digest() == old_hash.digest():
+    print "[INFO %s] Not updating HAProxy config - no changes made" % datetime.datetime.now()
+  else: 
+    print "[INFO %s] Updating HAProxy config" % datetime.datetime.now()
+    with open(output_filename, 'w') as output_file:
+      output_file.write(template.render(frontends=frontends, backends=backends, enumerate=enumerate))
 
 if __name__ == '__main__':
 
