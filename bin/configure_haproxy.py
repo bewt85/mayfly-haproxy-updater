@@ -2,7 +2,7 @@
 
 import argparse, cStringIO
 import datetime
-from Backup import BackupFactory
+from Backend import BackendFactory
 
 parser = argparse.ArgumentParser(description="Tool for updating haproxy.cfg")
 parser.add_argument('command', choices=['update'])
