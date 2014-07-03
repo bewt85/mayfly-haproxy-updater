@@ -58,7 +58,10 @@ class Backend(object):
 
 class BackendFactory(object):
   def fromEtcd(self):
-    backend_nodes = getEtcdNode('/mayfly/backends/')
+    try:
+      backend_nodes = getEtcdNode('/mayfly/backends/')
+    except KeyError:
+      return
     for service_nodes in backend_nodes.ls():
       service = service_nodes.short_key
       for version_nodes in service_nodes.ls():
