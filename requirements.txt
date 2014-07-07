@@ -1,5 +1,6 @@
 -e git+https://github.com/jplana/python-etcd.git@0.3.0#egg=python-etcd
 
+docker-py==0.3.1
 Jinja2==2.7.2
 MarkupSafe==0.23
 argparse==1.2.1
