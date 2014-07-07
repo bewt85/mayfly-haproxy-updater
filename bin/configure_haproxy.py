@@ -25,7 +25,7 @@ def getBackendsFromEtcd():
   for b in backend_objects:
     for (guest_port, host_port) in b.ports:
       if guest_port == '8080':
-        backends.setdefault("%s_%s" % (b.service, b.version), []).append("%s:%s" % (b.host_ip, host_port))
+        backends.setdefault("%s.service_%s" % (b.service, b.version), []).append("%s:%s" % (b.host_ip, host_port))
 
   return backends
 
