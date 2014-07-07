@@ -3,10 +3,16 @@
 import argparse, cStringIO
 import datetime
 from Backend import BackendFactory
+from ClassyEtcd import *
 
 parser = argparse.ArgumentParser(description="Tool for updating haproxy.cfg")
 parser.add_argument('command', choices=['update'])
 args = parser.parse_args()
+
+def uniqueDictsInList(dict_list):
+  for i, d in enumerate(dict_list):
+    if d not in dict_list[i+1:]:
+      yield d
 
 def getBackendsFromEtcd():
   """
@@ -29,12 +35,12 @@ def getFrontendsFromEtcd():
   # /mayfly/backends/$SERVICE/$VERSION/$MD5/env -> Environment which this container supports
   # /mayfly/backends/$SERVICE/$VERSION/$MD5/healthcheck -> URL to hit to check service health (/ping/ping)
   factory = BackendFactory()
-  backends = list(factory.fromEtcd())
+  backend_objects = list(factory.fromEtcd())
 
-  environments = list(set(map(lambda b: {'env_name': b.env, 'env_prefix': "www-%s" % b.env, 'env_header': b.env}, backends)))
-  services = list(set(map(lambda b: b.service, backends)))
-  backends = list(set(map(lambda b: {'env_name': b.env, 'version': b.version, 'service_name': b.service}, backends)))
-  routes =  list(set(map(lambda b: {'env_name': b.env, 'route': '', 'service': b.service, 'version': b.version}, backends)))
+  environments = list(uniqueDictsInList(map(lambda b: {'env_name': b.env, 'env_prefix': "www-%s" % b.env, 'env_header': b.env}, backend_objects)))
+  services = list(set(map(lambda b: b.service, backend_objects)))
+  backends = list(uniqueDictsInList(map(lambda b: {'env_name': b.env, 'version': b.version, 'service_name': b.service}, backend_objects)))
+  routes =  list(uniqueDictsInList(map(lambda b: {'env_name': b.env, 'route': '', 'service': b.service, 'version': b.version}, backend_objects)))
   return {80: {'environments': environments, 'services': services, 'backends': backends, 'routes': routes}}
 
 from jinja2 import Environment, FileSystemLoader
