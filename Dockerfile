@@ -2,7 +2,7 @@
 
 FROM bewt85/etcdctl:0.4.1 
 
-RUN apt-get update
+RUN apt-get update # Updated 2014-07-06
 RUN apt-get install -y python2.7 python-pip python-dev libssl-dev vim git
 
 ADD requirements.txt     /etc/mayfly/
