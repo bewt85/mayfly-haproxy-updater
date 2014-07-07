@@ -14,18 +14,19 @@ def uniqueDictsInList(dict_list):
       yield d
 
 def getBackendsFromEtcd():
-  """
-  /mayfly/backends/$SERVICE/$VERSION/$MD5/ip -> Host IP Address
-  /mayfly/backends/$SERVICE/$VERSION/$MD5/port/8080 -> Host port which maps to 8080 
-  /mayfly/backends/$SERVICE/$VERSION/$MD5/env -> Environment which this container supports
-  /mayfly/backends/$SERVICE/$VERSION/$MD5/healthcheck -> URL to hit to check service health (/ping/ping)
-  """
-  client = getEtcdClient()
+  # /mayfly/backends/$SERVICE/$VERSION/$MD5/ip -> Host IP Address
+  # /mayfly/backends/$SERVICE/$VERSION/$MD5/port/8080 -> Host port which maps to 8080 
+  # /mayfly/backends/$SERVICE/$VERSION/$MD5/env -> Environment which this container supports
+  # /mayfly/backends/$SERVICE/$VERSION/$MD5/healthcheck -> URL to hit to check service health (/ping/ping)
+  factory = BackendFactory()
+  backend_objects = list(factory.fromEtcd())
+
   backends = {}
-  for backend in (Node(**n) for n in client.read('/mayfly/backends', recursive=True)._children):
-    for version in backend.ls():
-      for host in version.ls():
-        backends.setdefault("%s_%s" % (backend.short_key, version.short_key), []).append(host.value) 
+  for b in backend_objects:
+    for (guest_port, host_port) in b.ports:
+      if guest_port == '8080':
+        backends.setdefault("%s_%s" % (b.service, b.version), []).append("%s:%s" % (b.host_ip, host_port))
+
   return backends
 
 def getFrontendsFromEtcd():
