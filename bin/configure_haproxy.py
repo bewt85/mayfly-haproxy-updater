@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-import argparse, cStringIO
-import datetime
+import argparse, cStringIO, hashlib, datetime
 from Backend import BackendFactory
 from ClassyEtcd import *
 
@@ -30,18 +29,28 @@ def getBackendsFromEtcd():
   return backends
 
 def getFrontendsFromEtcd():
-  # /mayfly/backends/$SERVICE/$VERSION/$MD5/ip -> Host IP Address
-  # /mayfly/backends/$SERVICE/$VERSION/$MD5/port/8080 -> Host port which maps to 8080 
-  # /mayfly/backends/$SERVICE/$VERSION/$MD5/env -> Environment which this container supports
-  # /mayfly/backends/$SERVICE/$VERSION/$MD5/healthcheck -> URL to hit to check service health (/ping/ping)
-  factory = BackendFactory()
-  backend_objects = list(factory.fromEtcd())
-
-  environments = list(uniqueDictsInList(map(lambda b: {'env_name': b.env, 'env_prefix': "www-%s" % b.env, 'env_header': b.env}, backend_objects)))
-  services = list(set(map(lambda b: b.service, backend_objects)))
-  backends = list(uniqueDictsInList(map(lambda b: {'env_name': b.env, 'version': b.version, 'service_name': b.service}, backend_objects)))
-  routes =  list(uniqueDictsInList(map(lambda b: {'env_name': b.env, 'route': '', 'service': b.service, 'version': b.version}, backend_objects)))
-  return {80: {'environments': environments, 'services': services, 'backends': backends, 'routes': routes}}
+  client = getEtcdClient()
+  # /mayfly/environments/<name>/prefix                       => www
+  # /mayfly/environments/<name>/header                       => prod
+  # /mayfly/environments/<name>/routes/*                     => frontend/0.0.1
+  # /mayfly/environments/<name>/services/<service>/<version> => 0
+  environments = {}
+  for environment in (Node(**n) for n in client.read('/mayfly/environments', recursive=True)._children):
+    (env_name, prefix, header) = (environment.short_key, None, None)
+    prefix = environment['prefix'].value
+    environments.setdefault('prefixes', []).append(prefix)
+    header = environment['header'].value
+    environments.setdefault('environments', []).append({'env_name': env_name, 'env_prefix': prefix, 'env_header': header})
+    for service in environment['services'].ls():
+      service_name = service.short_key
+      environments.setdefault('services', []).append(service_name)
+      version = service.ls()[0].short_key
+      if len(service.ls())> 1:
+        raise ValueError("Etcd returns more than one version of %s in the $s environment.  Aborting" % (service_name, env_name))
+      environments.setdefault('backends', []).append({'env_name': env_name, 'version': version, 'service_name': service_name})
+    www_service, www_version = environment['routes']['*'].value.split('/') # Could support more routes later
+    environments.setdefault('routes', []).append({'env_name': env_name, 'route': '', 'service': www_service, 'version': www_version})
+  return {80: environments}
 
 from jinja2 import Environment, FileSystemLoader
 
